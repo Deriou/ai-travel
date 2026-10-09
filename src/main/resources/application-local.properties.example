@@ -1,0 +1,5 @@
+# Copy this file to application-local.properties and fill in your own credentials.
+# Never commit real passwords or API keys.
+spring.datasource.url=jdbc:mysql://localhost:3306/ai_travel
+spring.datasource.username=root
+spring.datasource.password=CHANGE_ME
