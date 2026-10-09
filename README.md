@@ -2,7 +2,7 @@
 
 河北农业大学小组实训项目。用户输入目的地、出行天数和游玩偏好，系统生成旅游路线，并提供保存、查询、收藏等功能。
 
-当前已完成城市列表接口和统一 JSON 返回格式。用户登录、AI 路线规划和 Vue 前端将逐步开发。
+当前已完成城市列表接口和统一 JSON 返回格式。用户登录、AI 路线规划将逐步开发。前端已接入城市列表接口。
 
 ## 开发环境
 
@@ -11,7 +11,7 @@
 - MyBatis Spring Boot Starter 3.0.5
 - Maven：项目提供 Maven Wrapper，版本为 3.9.10
 - MySQL：建议小组统一使用 8.0
-- 前端计划使用 Vue3，当前尚未创建
+- 前端：Vue3、Vite、Axios、Element Plus；Node.js 22.12+
 
 ## 项目结构
 
@@ -27,7 +27,7 @@ ai-travel/
 └── README.md                            项目说明
 ```
 
-后续在根目录增加 `frontend/` 存放 Vue 项目，前后端使用同一个 Git 仓库，分别启动和构建。
+根目录的 `frontend/` 存放 Vue 项目，前后端使用同一个 Git 仓库，分别启动和构建。
 
 ## 数据库配置
 
@@ -147,6 +147,17 @@ CityController → CityService → CityMapper → MySQL city 表
 - 8080 端口占用：停止之前运行的应用，再启动本项目。
 
 统一返回类当前只提供成功响应；全局异常处理会在后续步骤加入。
+
+## 前端启动与联调
+
+1. 先启动后端 `AiTravelApplication`，默认端口为 8080。
+2. 打开另一个终端，进入项目的 `frontend` 目录。
+3. 首次拉取或依赖变更后执行 `npm ci`，再执行 `npm run dev`。
+4. 打开终端给出的地址（通常是 `http://localhost:5173`），查看城市表格。
+
+前端通过 Axios 请求 `/api/city/list`，Vite 代理去掉 `/api` 后转发到后端 `/city/list`。页面展示数据库实际数据；修改数据库后点击“刷新”重新查询。当前开发联调不需要另加后端跨域设置。
+
+在 `frontend` 目录执行 `npm run build` 验证构建。提交 `package.json`、`package-lock.json` 和源码，不提交 `node_modules`、`dist`。修改 `vite.config.js` 后重启前端。Vite 代理仅适用于开发服务，构建后部署的转发设置后续补充。
 
 ## 小组协作
 
