@@ -1,0 +1,12 @@
+### 查询城市列表：先在 IDEA 中启动 AiTravelApplication
+GET http://localhost:8080/city/list
+Accept: application/json
+
+> {%
+    client.test("城市列表返回成功且 data 是数组", function () {
+        client.assert(response.status === 200, "HTTP 状态应为 200");
+        client.assert(response.body.code === 200, "业务状态应为 200");
+        client.assert(response.body.msg === "success", "消息应为 success");
+        client.assert(Array.isArray(response.body.data), "data 应为数组");
+    });
+%}
