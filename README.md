@@ -9,25 +9,45 @@
 - Java 17
 - Spring Boot 3.5.16
 - MyBatis Spring Boot Starter 3.0.5
+- Spring Security 6、JJWT 0.12（JWT 令牌）、BCrypt 密码散列
+- 大模型：DeepSeek（OpenAI 兼容接口，`deepseek-chat`）
 - Maven：项目提供 Maven Wrapper，版本为 3.9.10
 - MySQL：建议小组统一使用 8.0
-- 前端：Vue3、Vite、Axios、Element Plus；Node.js 22.12+
+- 前端：Vue3、Vite、Vue Router、Axios、Element Plus；Node.js 22.12+
 
 ## 项目结构
 
 ```text
 ai-travel/
 ├── src/main/java/cn/edu/hebau/aitravel/   后端代码
+│   ├── controller/                      接收请求：City、Scenic、User、Ai、Route
+│   ├── service/                         业务逻辑与参数校验
+│   ├── mapper/                          MyBatis 注解 SQL
+│   ├── entity/                          与数据表对应的数据类
+│   ├── config/                          Spring Security 配置与 JWT 过滤器
+│   └── util/                            Result、分页结果、异常处理、JwtUtil
 ├── src/main/resources/                  应用配置
-├── src/test/                            后端测试
-├── sql/init.sql                         四张表与城市、景点数据初始化
+├── src/test/                            后端测试（H2 内存数据库）
+├── sql/init.sql                         四张表与城市、景点、演示账号初始化
 ├── http/                                IDEA HTTP 请求示例（city、scenic、user、ai、route）
+├── frontend/                            Vue 前端，说明见 frontend/README.md
 ├── .mvn/、mvnw、mvnw.cmd                Maven Wrapper
 ├── pom.xml                              后端依赖和构建配置
 └── README.md                            项目说明
 ```
 
-根目录的 `frontend/` 存放 Vue 项目，前后端使用同一个 Git 仓库，分别启动和构建。
+前后端使用同一个 Git 仓库，分别启动和构建。
+
+## 数据库说明
+
+| 表 | 字段 | 说明 |
+|---|---|---|
+| `user` | `id`、`username`（唯一）、`password`（BCrypt 散列）、`create_time` | 用户 |
+| `city` | `id`、`city_name`、`description` | 城市 |
+| `scenic` | `id`、`city_id`、`scenic_name`、`scenic_desc` | 景点，`city_id` 对应 `city.id` |
+| `travel_route` | `id`、`user_id`、`destination`、`days`、`preference`、`route_content`、`tips_content`、`is_collect`（0/1）、`create_time` | 保存的路线，`user_id` 对应 `user.id` |
+
+一个城市对应多个景点，一个用户对应多条路线。各表 `id` 为自增主键。数据库字段使用下划线，Java 和 JSON 字段使用驼峰（如 `route_content` ↔ `routeContent`），由 MyBatis 自动映射。完整建表语句见 `sql/init.sql`。
 
 ## 数据库配置
 
@@ -75,7 +95,7 @@ spring.config.import=optional:classpath:application-local.properties
 4. 运行 `cn.edu.hebau.aitravel.AiTravelApplication`。
 5. 控制台出现 `Started AiTravelApplication`，且 Web 服务监听 8080 端口，表示应用启动成功。
 
-浏览器打开 `http://localhost:8080/city/list` 查看城市列表。根路径 `/` 尚未提供页面，返回 404 属于预期情况。
+浏览器打开 `http://localhost:8080/city/list` 查看城市列表。后端只提供接口，页面由前端提供；直接访问根路径 `/` 返回 401 JSON 属于预期情况。
 
 Maven 本地仓库用于存放依赖，每个人可以使用默认目录或自己的目录，不需要和其他成员一致，也不提交到 GitHub。通过 IDEA 设置的本地仓库路径不会自动应用到独立终端的 Maven 命令。
 
@@ -227,12 +247,25 @@ GET http://localhost:8080/scenic/list?cityId=1&pageNum=1&pageSize=5
 .\mvnw.cmd test
 ```
 
-自动测试使用测试范围的 H2 内存数据库，覆盖中文数据、排序、字段映射、统一响应和空数组场景，不修改个人 MySQL 中的数据。H2 不用于实际运行；真实 MySQL 连接需通过 `/city/list` 验证。
+自动测试使用测试范围的 H2 内存数据库，不修改个人 MySQL 中的数据，也不会真正调用大模型（只替换发送请求的 `AiService.chat` 方法），因此不消耗 AI 额度、没有网络也能运行。共 26 个用例，覆盖：
+
+- 查询有数据与空数据、排序、字段映射、统一响应格式；
+- 景点筛选与分页、分页参数非法；
+- 注册成功并以 BCrypt 散列保存、用户名重复、密码错误、响应不含密码；
+- 令牌缺失、被篡改、已过期返回 401；
+- AI 参数非法时不调用大模型、AI 调用失败返回 500；
+- 路线保存与查询、只看到本人路线、请求体中的 `userId` 被忽略、删除和收藏他人路线被拒绝、重复收藏结果相同。
+
+H2 不用于实际运行；真实 MySQL 连接需通过 `/city/list` 验证。
 
 - `Access denied`：检查本地配置中的数据库账号和密码。
 - `Communications link failure`：检查 MySQL 是否启动，以及连接地址和端口。
-- `Unknown database` 或提示 `city` 表不存在：执行 `sql/init.sql`，并确认连接的是 `ai_travel`。
+- `Unknown database` 或提示表不存在：执行 `sql/init.sql`，并确认连接的是 `ai_travel`。
+- 启动报 `jwt.secret` 相关错误：本地配置缺少 `jwt.secret` 或不足 32 个字符。
+- 演示账号无法登录：重新执行 `sql/init.sql`，脚本会把旧的明文密码改为散列。
+- AI 接口返回“AI生成失败”：查看后端日志中“调用大模型失败”一行，常见原因是 `ai.api-key` 未填写、填写错误或账户余额不足。
 - 8080 端口占用：停止之前运行的应用，再启动本项目。
+
 ## 前端启动与联调
 
 1. 先启动后端 `AiTravelApplication`，默认端口为 8080。
@@ -242,7 +275,67 @@ GET http://localhost:8080/scenic/list?cityId=1&pageNum=1&pageSize=5
 
 前端包含城市与景点、登录注册、AI 路线规划、个人中心四个页面，页面说明和代码结构见 `frontend/README.md`。前端请求 `/api/...`，Vite 代理去掉 `/api` 后转发到后端，因此开发联调不需要另加后端跨域设置。
 
-在 `frontend` 目录执行 `npm run build` 验证构建。提交 `package.json`、`package-lock.json` 和源码，不提交 `node_modules`、`dist`。修改 `vite.config.js` 后重启前端。Vite 代理仅适用于开发服务，构建后部署的转发设置后续补充。
+提交 `package.json`、`package-lock.json` 和源码，不提交 `node_modules`、`dist`。修改 `vite.config.js` 后重启前端。
+
+## 打包与运行
+
+后端打包（会先运行全部测试）：
+
+```bash
+./mvnw clean package          # Windows：.\mvnw.cmd clean package
+```
+
+生成 `target/ai-travel-0.0.1-SNAPSHOT.jar`。为避免泄露数据库密码和 API Key，Jar 中**不包含** `application-local.properties`，运行时从外部指定：
+
+```bash
+java -jar target/ai-travel-0.0.1-SNAPSHOT.jar --spring.config.additional-location=file:src/main/resources/application-local.properties
+```
+
+前端构建与本地预览：
+
+```bash
+cd frontend
+npm run build                 # 生成 dist/
+npm run preview               # 在 http://localhost:4173 预览 dist，同样把 /api 代理到 8080
+```
+
+项目只要求本地运行演示，不安排线上部署。
+
+## 验收检查对照
+
+| 检查项 | 如何验证 |
+|---|---|
+| 环境与数据 | 按本 README 配置后启动；执行 `sql/init.sql` 得到 4 个城市、12 个景点和演示账号 |
+| 城市与景点 | “城市与景点”页面展示数据库数据；选择城市筛选、翻页；筛选无景点的城市显示“暂无景点数据” |
+| 注册与登录 | 注册新账号后登录；重复用户名提示“用户名已存在”，错误密码提示“用户名或密码错误”；退出后访问个人中心被要求登录 |
+| AI 生成 | 填写条件后得到路线和小贴士；目的地或偏好为空时前端提示；天数由输入框限制为 1～30，接口传入非法天数返回 400（见 `http/ai.http`） |
+| 路线管理 | 保存后刷新个人中心仍可查询；收藏、取消收藏、复制、删除有效 |
+| 权限与异常 | 缺失或无效令牌返回 401（`http/user.http`、自动测试）；不能操作他人路线（自动测试 `RouteControllerTests`）；AI 失败提示后可再次点击生成 |
+| 构建与运行 | `./mvnw clean package` 与 `npm run build` 成功 |
+
+## 答辩演示步骤
+
+演示前：启动 MySQL、后端和前端，确认 `ai.api-key` 可用，演示账号可登录。
+
+1. **注册登录**：在“登录 / 注册”页注册一个新账号，再用它登录；顺带演示一次错误密码的提示。
+2. **城市与景点**：展示城市表格；在景点列表选择城市筛选、翻页；点击城市行也可直接筛选。
+3. **AI 生成**：在“AI 路线规划”页选择目的地、天数和偏好，点击生成，说明生成期间按钮不可重复点击。
+4. **小贴士与保存**：结果同时展示路线和小贴士，点击“保存路线”。
+5. **个人中心**：查看刚保存的路线，演示收藏、只看收藏、复制、删除（删除前有确认）。
+6. **失败提示**：任选其一——登录时输错密码；或退出登录后直接打开 `/profile` 被要求登录；或在本地配置中临时改错 `ai.api-key` 并重启后端，生成时提示“AI生成失败，请稍后重试”。
+
+讲解要点与对应代码：
+
+| 讲解内容 | 代码位置 |
+|---|---|
+| 前端如何调用接口 | `frontend/src/request.js`（统一加 `/api`、携带令牌、处理错误）、`frontend/vite.config.js`（代理） |
+| Controller、Service、Mapper 分工 | 以景点为例：`ScenicController` 接收参数 → `ScenicService` 校验并计算分页 → `ScenicMapper` 执行 SQL |
+| 数据如何存入 MySQL | `RouteMapper.insert`：`INSERT ... VALUES (..., NOW())`，自增编号写回 `route.id` |
+| AI 是第三方接口调用 | `AiService.chat`：用 `RestClient` 调用 DeepSeek 的 `/chat/completions` |
+| Spring Security 拦截未登录请求 | `SecurityConfig`：公开接口白名单，其余需要登录，未登录返回 401 |
+| JWT 确定用户身份 | `JwtUtil` 生成和校验令牌；`JwtAuthFilter` 解析出用户编号交给 Spring Security |
+| BCrypt 校验密码 | `UserService.register` 中 `encode`，`UserService.login` 中 `matches` |
+| 只能操作自己的路线 | `RouteMapper` 的 `WHERE id = ? AND user_id = ?`，影响行数为 0 时 `RouteService` 返回 400 |
 
 ## 小组协作
 

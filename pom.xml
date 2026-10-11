@@ -95,6 +95,16 @@
 
     <build>
         <plugins>
+            <!-- Jar 是交付物：不把含数据库密码和 API Key 的本地配置打进去，运行 Jar 时从外部指定。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>application-local.properties</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
