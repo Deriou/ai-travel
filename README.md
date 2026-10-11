@@ -2,7 +2,7 @@
 
 河北农业大学小组实训项目。用户输入目的地、出行天数和游玩偏好，系统生成旅游路线，并提供保存、查询、收藏等功能。
 
-当前已完成统一返回与异常处理、城市列表、景点分页、注册登录（Spring Security + JWT + BCrypt）、AI 生成路线与出行小贴士（DeepSeek）、路线保存与管理。后端接口已全部完成。前端已接入城市列表接口。
+当前已完成统一返回与异常处理、城市列表、景点分页、注册登录（Spring Security + JWT + BCrypt）、AI 生成路线与出行小贴士（DeepSeek）、路线保存与管理。前端已完成四个页面并与全部接口联调。
 
 ## 开发环境
 
@@ -238,9 +238,9 @@ GET http://localhost:8080/scenic/list?cityId=1&pageNum=1&pageSize=5
 1. 先启动后端 `AiTravelApplication`，默认端口为 8080。
 2. 打开另一个终端，进入项目的 `frontend` 目录。
 3. 首次拉取或依赖变更后执行 `npm ci`，再执行 `npm run dev`。
-4. 打开终端给出的地址（通常是 `http://localhost:5173`），查看城市表格。
+4. 打开终端给出的地址（通常是 `http://localhost:5173`），用演示账号 `testuser` / `123456` 登录。
 
-前端通过 Axios 请求 `/api/city/list`，Vite 代理去掉 `/api` 后转发到后端 `/city/list`。页面展示数据库实际数据；修改数据库后点击“刷新”重新查询。当前开发联调不需要另加后端跨域设置。
+前端包含城市与景点、登录注册、AI 路线规划、个人中心四个页面，页面说明和代码结构见 `frontend/README.md`。前端请求 `/api/...`，Vite 代理去掉 `/api` 后转发到后端，因此开发联调不需要另加后端跨域设置。
 
 在 `frontend` 目录执行 `npm run build` 验证构建。提交 `package.json`、`package-lock.json` 和源码，不提交 `node_modules`、`dist`。修改 `vite.config.js` 后重启前端。Vite 代理仅适用于开发服务，构建后部署的转发设置后续补充。
 
