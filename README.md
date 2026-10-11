@@ -127,6 +127,31 @@ CityController → CityService → CityMapper → MySQL city 表
 
 公共配置已开启下划线到驼峰映射，数据库的 `city_name` 自动对应 Java 的 `cityName`。Service 目前使用一个具体类，查询 SQL 写在注解中。
 
+## 景点分页接口
+
+```http
+GET http://localhost:8080/scenic/list?cityId=1&pageNum=1&pageSize=5
+```
+
+`cityId` 可不传，不传时查询全部景点；`pageNum` 从 1 开始，`pageSize` 范围 1～100，两者必填。按 `id` 升序返回：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "list": [{"id": 1, "cityId": 1, "scenicName": "故宫", "scenicDesc": "明清皇家宫殿……"}],
+    "total": 3,
+    "pageNum": 1,
+    "pageSize": 5
+  }
+}
+```
+
+`total` 是筛选后的总条数。没有匹配结果或页码超出范围时 `list` 为 `[]`。页码或每页条数非法时返回 HTTP 400、`code` 400。请求示例见 `http/scenic.http`。
+
+分页用 SQL 的 `LIMIT 起始位置, 条数` 实现，起始位置 = `(pageNum - 1) × pageSize`；另执行一次 `COUNT(*)` 得到总条数。`ScenicMapper` 中的 `<if>` 表示传了 `cityId` 才拼接 `WHERE city_id = ?`。
+
 ## 验证与常见问题
 
 运行测试：

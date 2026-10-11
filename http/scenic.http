@@ -1,0 +1,36 @@
+### 查询全部景点第 1 页：先在 IDEA 中启动 AiTravelApplication
+GET http://localhost:8080/scenic/list?pageNum=1&pageSize=5
+Accept: application/json
+
+> {%
+    client.test("景点分页返回成功", function () {
+        client.assert(response.status === 200, "HTTP 状态应为 200");
+        client.assert(response.body.code === 200, "业务状态应为 200");
+        client.assert(Array.isArray(response.body.data.list), "data.list 应为数组");
+        client.assert(typeof response.body.data.total === "number", "data.total 应为数字");
+    });
+%}
+
+### 按城市筛选（cityId=1）
+GET http://localhost:8080/scenic/list?cityId=1&pageNum=1&pageSize=5
+Accept: application/json
+
+> {%
+    client.test("筛选结果都属于该城市", function () {
+        client.assert(response.body.code === 200, "业务状态应为 200");
+        response.body.data.list.forEach(function (s) {
+            client.assert(s.cityId === 1, "cityId 应为 1");
+        });
+    });
+%}
+
+### 非法页码：应返回 400
+GET http://localhost:8080/scenic/list?pageNum=0&pageSize=5
+Accept: application/json
+
+> {%
+    client.test("页码非法返回 400", function () {
+        client.assert(response.status === 400, "HTTP 状态应为 400");
+        client.assert(response.body.code === 400, "业务状态应为 400");
+    });
+%}
