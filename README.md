@@ -2,7 +2,7 @@
 
 河北农业大学小组实训项目。用户输入目的地、出行天数和游玩偏好，系统生成旅游路线，并提供保存、查询、收藏等功能。
 
-当前已完成城市列表接口和统一 JSON 返回格式。用户登录、AI 路线规划将逐步开发。前端已接入城市列表接口。
+当前已完成统一返回与异常处理、城市列表、景点分页、注册登录（Spring Security + JWT + BCrypt）。AI 路线规划和路线管理将逐步开发。前端已接入城市列表接口。
 
 ## 开发环境
 
@@ -21,7 +21,7 @@ ai-travel/
 ├── src/main/resources/                  应用配置
 ├── src/test/                            后端测试
 ├── sql/init.sql                         四张表与城市、景点数据初始化
-├── http/city.http                       IDEA HTTP 请求示例
+├── http/                                IDEA HTTP 请求示例（city、scenic、user）
 ├── .mvn/、mvnw、mvnw.cmd                Maven Wrapper
 ├── pom.xml                              后端依赖和构建配置
 └── README.md                            项目说明
@@ -35,13 +35,18 @@ ai-travel/
 
 1. 确认本地 MySQL 已启动。在数据库工具（IDEA、Navicat 或 MySQL 客户端）中执行 `sql/init.sql`，创建 `user`、`city`、`scenic`、`travel_route` 四张表并准备城市和景点数据。脚本不会删除数据库、表或已有路线，重复执行不会再插入同名城市或景点。
 2. 复制 `src/main/resources/application-local.properties.example`，将副本命名为同目录下的 `application-local.properties`。
-3. 编辑副本，填写自己的连接地址、账号和密码：
+3. 编辑副本，填写自己的连接地址、账号、密码，以及 JWT 签名密钥：
 
 ```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/ai_travel
 spring.datasource.username=root
 spring.datasource.password=填写自己的数据库密码
+jwt.secret=任意随机字符串，至少32个字符
 ```
+
+`jwt.secret` 用于给登录令牌签名，可以用 `openssl rand -hex 32` 生成。缺少或少于 32 个字符时应用无法启动。
+
+脚本会准备演示账号 `testuser`，密码 `123456`（数据库中保存的是 BCrypt 散列）。
 
 如果 MySQL 端口或账号不同，修改对应值即可。不要给密码额外加引号；密码中的反斜杠在 Properties 文件中需要写成两个反斜杠。
 
@@ -151,6 +156,25 @@ GET http://localhost:8080/scenic/list?cityId=1&pageNum=1&pageSize=5
 `total` 是筛选后的总条数。没有匹配结果或页码超出范围时 `list` 为 `[]`。页码或每页条数非法时返回 HTTP 400、`code` 400。请求示例见 `http/scenic.http`。
 
 分页用 SQL 的 `LIMIT 起始位置, 条数` 实现，起始位置 = `(pageNum - 1) × pageSize`；另执行一次 `COUNT(*)` 得到总条数。`ScenicMapper` 中的 `<if>` 表示传了 `cityId` 才拼接 `WHERE city_id = ?`。
+
+## 注册登录与权限
+
+| 接口 | 说明 | 权限 |
+|---|---|---|
+| `POST /user/register` | 请求体 `{"username","password"}`，成功 `msg` 为“注册成功”，不自动登录 | 公开 |
+| `POST /user/login` | 成功返回 `data.token` 和 `data.user`（`id`、`username`、`createTime`） | 公开 |
+
+用户名重复、输入为空、密码不是 6～20 个字符、账号或密码错误时，返回 HTTP 400、`code` 400。响应中不会出现密码或密码散列。请求示例见 `http/user.http`。
+
+登录后，受保护接口在请求头携带 `Authorization: Bearer <token>`。城市、景点、注册、登录公开访问，其余接口都需要登录；没有令牌、令牌被篡改或已过期时返回 HTTP 401 和 `{"code":401,"msg":"未登录或登录已失效","data":null}`。
+
+三者分工：
+
+- **BCrypt**（`SecurityConfig.passwordEncoder`）：注册时 `encode` 把密码变成散列存库；登录时 `matches` 比对输入密码和散列。散列不可逆，数据库泄露也看不到明文。
+- **JWT**（`util/JwtUtil`）：登录成功后生成令牌，里面只放用户编号和过期时间，并用 `jwt.secret` 签名；有效期由 `jwt.expire-hours` 配置（默认 24 小时）。令牌被改动后签名对不上，会被拒绝。
+- **Spring Security**（`config/SecurityConfig`、`config/JwtAuthFilter`）：每个请求先经过 `JwtAuthFilter`，令牌有效就把用户编号登记为“已登录”；随后 `SecurityConfig` 判断接口是否需要登录，未登录则返回 401。
+
+后续接口通过 `@AuthenticationPrincipal Long userId` 取得当前用户编号，不接受前端传入的 `userId`。采用无状态认证，不使用 Session；退出登录由前端删除令牌，已签发的令牌在到期前仍有效。
 
 ## 验证与常见问题
 

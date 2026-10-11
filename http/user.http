@@ -1,0 +1,53 @@
+### 注册：用户名重复时返回 400，可修改 username 后重试
+POST http://localhost:8080/user/register
+Content-Type: application/json
+
+{
+  "username": "student",
+  "password": "Example123!"
+}
+
+### 登录演示账号，并把 token 保存到全局变量，后续受保护请求使用 {{token}}
+POST http://localhost:8080/user/login
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "password": "123456"
+}
+
+> {%
+    client.test("登录成功并返回 token", function () {
+        client.assert(response.status === 200, "HTTP 状态应为 200");
+        client.assert(response.body.code === 200, "业务状态应为 200");
+        client.assert(typeof response.body.data.token === "string", "应返回 token");
+        client.assert(response.body.data.user.password === undefined, "不应返回密码");
+    });
+    client.global.set("token", response.body.data.token);
+%}
+
+### 密码错误：应返回 400
+POST http://localhost:8080/user/login
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "password": "wrong-password"
+}
+
+> {%
+    client.test("密码错误返回 400", function () {
+        client.assert(response.status === 400, "HTTP 状态应为 400");
+        client.assert(response.body.msg === "用户名或密码错误", "提示应为用户名或密码错误");
+    });
+%}
+
+### 未携带令牌访问受保护接口：应返回 401
+GET http://localhost:8080/route/myList
+
+> {%
+    client.test("未登录返回 401", function () {
+        client.assert(response.status === 401, "HTTP 状态应为 401");
+        client.assert(response.body.code === 401, "业务状态应为 401");
+    });
+%}

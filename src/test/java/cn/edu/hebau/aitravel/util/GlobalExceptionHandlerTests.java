@@ -15,7 +15,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:error-test;MODE=MySQL;DB_CLOSE_DELAY=-1",
         "spring.datasource.username=sa",
-        "spring.datasource.password="
+        "spring.datasource.password=",
+        "jwt.secret=test-secret-key-for-unit-tests-only-32chars"
 })
 @AutoConfigureMockMvc
 class GlobalExceptionHandlerTests {
@@ -24,7 +25,7 @@ class GlobalExceptionHandlerTests {
 
     @Test
     void unknownPathReturns404Result() throws Exception {
-        mockMvc.perform(get("/not-exist"))
+        mockMvc.perform(get("/city/not-exist"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(404))
                 .andExpect(jsonPath("$.data").doesNotExist());

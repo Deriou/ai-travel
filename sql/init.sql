@@ -105,6 +105,16 @@ INSERT INTO scenic (city_id, scenic_name, scenic_desc)
 SELECT id, '大雁塔', '唐代佛塔，周边有大唐不夜城和音乐喷泉' FROM city
 WHERE city_name = '西安' AND NOT EXISTS (SELECT 1 FROM scenic WHERE scenic_name = '大雁塔');
 
+-- ========== 演示账号 ==========
+-- 用户名 testuser，密码 123456。password 列保存的是 BCrypt 散列，不是明文。
+-- 早期脚本曾以明文 123456 保存该账号，这里一并改为散列，否则无法登录。
+
+INSERT INTO `user` (username, password)
+SELECT 'testuser', '$2a$10$T4W28xBYSopgsZ08q3MseeWz7ggnVtg64ck9URh2zvdUt0YuH48ta'
+WHERE NOT EXISTS (SELECT 1 FROM `user` WHERE username = 'testuser');
+UPDATE `user` SET password = '$2a$10$T4W28xBYSopgsZ08q3MseeWz7ggnVtg64ck9URh2zvdUt0YuH48ta'
+WHERE username = 'testuser' AND password = '123456';
+
 -- ========== 检查结果 ==========
 
 SELECT COUNT(*) AS city_count FROM city;
