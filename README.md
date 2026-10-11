@@ -2,7 +2,7 @@
 
 河北农业大学小组实训项目。用户输入目的地、出行天数和游玩偏好，系统生成旅游路线，并提供保存、查询、收藏等功能。
 
-当前已完成统一返回与异常处理、城市列表、景点分页、注册登录（Spring Security + JWT + BCrypt）。AI 路线规划和路线管理将逐步开发。前端已接入城市列表接口。
+当前已完成统一返回与异常处理、城市列表、景点分页、注册登录（Spring Security + JWT + BCrypt）、AI 生成路线与出行小贴士（DeepSeek）。路线保存与管理将逐步开发。前端已接入城市列表接口。
 
 ## 开发环境
 
@@ -21,7 +21,7 @@ ai-travel/
 ├── src/main/resources/                  应用配置
 ├── src/test/                            后端测试
 ├── sql/init.sql                         四张表与城市、景点数据初始化
-├── http/                                IDEA HTTP 请求示例（city、scenic、user）
+├── http/                                IDEA HTTP 请求示例（city、scenic、user、ai）
 ├── .mvn/、mvnw、mvnw.cmd                Maven Wrapper
 ├── pom.xml                              后端依赖和构建配置
 └── README.md                            项目说明
@@ -42,9 +42,10 @@ spring.datasource.url=jdbc:mysql://localhost:3306/ai_travel
 spring.datasource.username=root
 spring.datasource.password=填写自己的数据库密码
 jwt.secret=任意随机字符串，至少32个字符
+ai.api-key=sk-你的DeepSeek密钥
 ```
 
-`jwt.secret` 用于给登录令牌签名，可以用 `openssl rand -hex 32` 生成。缺少或少于 32 个字符时应用无法启动。
+`jwt.secret` 用于给登录令牌签名，可以用 `openssl rand -hex 32` 生成。缺少或少于 32 个字符时应用无法启动。`ai.api-key` 在 [DeepSeek 开放平台](https://platform.deepseek.com/api_keys) 创建；不填也能启动，但 AI 接口会返回“AI生成失败”。
 
 脚本会准备演示账号 `testuser`，密码 `123456`（数据库中保存的是 BCrypt 散列）。
 
@@ -60,7 +61,7 @@ spring.config.import=optional:classpath:application-local.properties
 - `application-local.properties.example`：提交到 GitHub，提供配置示例，不填写真实密码。
 - `application-local.properties`：已被 `.gitignore` 忽略，只留在个人电脑上。
 
-后续 AI API Key 也存放在本地配置中，不写进公共配置、源码或 README。
+数据库密码、JWT 签名密钥和 AI API Key 都只存放在本地配置中，不写进公共配置、源码或 README。
 
 已接入 MyBatis，通过注解 SQL 查询 `city` 表。启动后访问 `/city/list` 验证实际数据库连接；只看到启动成功日志还不能确认数据库查询成功。SQL 脚本需手动执行，应用启动时不会自动初始化数据库。
 
@@ -175,6 +176,23 @@ GET http://localhost:8080/scenic/list?cityId=1&pageNum=1&pageSize=5
 - **Spring Security**（`config/SecurityConfig`、`config/JwtAuthFilter`）：每个请求先经过 `JwtAuthFilter`，令牌有效就把用户编号登记为“已登录”；随后 `SecurityConfig` 判断接口是否需要登录，未登录则返回 401。
 
 后续接口通过 `@AuthenticationPrincipal Long userId` 取得当前用户编号，不接受前端传入的 `userId`。采用无状态认证，不使用 Session；退出登录由前端删除令牌，已签发的令牌在到期前仍有效。
+
+## AI 生成接口
+
+| 接口 | 请求体 | 返回 `data` |
+|---|---|---|
+| `POST /ai/generateRoute` | `{"destination":"北京","days":3,"preference":"休闲、美食"}` | 按天分段的路线文本 |
+| `POST /ai/generateTips` | `{"destination":"北京","days":3}` | 出行小贴士文本，每条一行 |
+
+两个接口都需要登录。目的地必填，天数为 1～30 的整数，路线接口的偏好必填；不符合时返回 400，不会调用大模型。大模型超时、网络异常、Key 错误或返回为空时，返回 HTTP 500 和 `{"code":500,"msg":"AI生成失败，请稍后重试","data":null}`，详细原因只写入后端日志。生成结果不会自动保存。请求示例见 `http/ai.http`。
+
+实现集中在 `service/AiService`：
+
+1. 校验出行条件，把目的地、天数、偏好拼成一段中文提示词。
+2. 用 Spring 自带的 `RestClient` 按 OpenAI 兼容格式请求 `POST {ai.base-url}/chat/completions`，请求头带 `Authorization: Bearer {ai.api-key}`。
+3. 从返回 JSON 的 `choices[0].message.content` 取出文本，原样返回前端。
+
+接口地址、模型名和超时在 `application.properties` 中（`ai.base-url`、`ai.model`、`ai.timeout-seconds`，默认 60 秒），API Key 在本地配置中。换用其他兼容 OpenAI 格式的大模型时，只需修改这几项配置。
 
 ## 验证与常见问题
 

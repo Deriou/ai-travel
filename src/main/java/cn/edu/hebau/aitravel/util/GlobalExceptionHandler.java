@@ -22,6 +22,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Result.error(400, e.getMessage()));
     }
 
+    /** 大模型调用失败，提示用户稍后重试。 */
+    @ExceptionHandler(AiException.class)
+    public ResponseEntity<Result<Void>> handleAi(AiException e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Result.error(500, e.getMessage()));
+    }
+
     /** 参数缺失、类型错误、JSON 格式错误或请求方式不对。 */
     @ExceptionHandler({
             MissingServletRequestParameterException.class,

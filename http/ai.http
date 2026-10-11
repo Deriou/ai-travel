@@ -1,0 +1,54 @@
+### 需要登录：先运行 http/user.http 中的“登录演示账号”请求，保存 {{token}}
+
+### 生成旅游路线（耗时取决于网络和模型，通常数秒到数十秒）
+POST http://localhost:8080/ai/generateRoute
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "destination": "北京",
+  "days": 3,
+  "preference": "休闲、美食"
+}
+
+> {%
+    client.test("生成路线成功", function () {
+        client.assert(response.status === 200, "HTTP 状态应为 200");
+        client.assert(response.body.code === 200, "业务状态应为 200");
+        client.assert(typeof response.body.data === "string", "data 应为路线文本");
+    });
+%}
+
+### 生成出行小贴士
+POST http://localhost:8080/ai/generateTips
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "destination": "北京",
+  "days": 3
+}
+
+> {%
+    client.test("生成小贴士成功", function () {
+        client.assert(response.body.code === 200, "业务状态应为 200");
+        client.assert(typeof response.body.data === "string", "data 应为小贴士文本");
+    });
+%}
+
+### 天数非法：应返回 400，且不会调用大模型
+POST http://localhost:8080/ai/generateRoute
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "destination": "北京",
+  "days": 0,
+  "preference": "美食"
+}
+
+> {%
+    client.test("天数非法返回 400", function () {
+        client.assert(response.status === 400, "HTTP 状态应为 400");
+    });
+%}
