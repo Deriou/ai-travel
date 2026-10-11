@@ -1,0 +1,70 @@
+### 需要登录：先运行 http/user.http 中的“登录演示账号”请求，保存 {{token}}
+
+### 保存路线：成功后 data 为新路线编号，保存到 {{routeId}}
+POST http://localhost:8080/route/save
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "destination": "北京",
+  "days": 3,
+  "preference": "休闲、美食",
+  "routeContent": "第1天：故宫与景山公园。\n第2天：颐和园。\n第3天：美食体验。",
+  "tipsContent": "提前了解景点预约规则。"
+}
+
+> {%
+    client.test("保存成功并返回编号", function () {
+        client.assert(response.status === 200, "HTTP 状态应为 200");
+        client.assert(response.body.msg === "保存成功", "提示应为保存成功");
+        client.assert(typeof response.body.data === "number", "data 应为路线编号");
+    });
+    client.global.set("routeId", response.body.data);
+%}
+
+### 查询我的路线：最新的在前
+GET http://localhost:8080/route/myList
+Authorization: Bearer {{token}}
+
+> {%
+    client.test("返回本人路线数组", function () {
+        client.assert(response.body.code === 200, "业务状态应为 200");
+        client.assert(Array.isArray(response.body.data), "data 应为数组");
+    });
+%}
+
+### 收藏（传 0 为取消收藏）
+PUT http://localhost:8080/route/collect/{{routeId}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "isCollect": 1
+}
+
+> {%
+    client.test("设置收藏成功", function () {
+        client.assert(response.body.msg === "设置成功", "提示应为设置成功");
+    });
+%}
+
+### 删除
+DELETE http://localhost:8080/route/delete/{{routeId}}
+Authorization: Bearer {{token}}
+
+> {%
+    client.test("删除成功", function () {
+        client.assert(response.body.msg === "删除成功", "提示应为删除成功");
+    });
+%}
+
+### 再次删除同一条：已不存在，应返回 400
+DELETE http://localhost:8080/route/delete/{{routeId}}
+Authorization: Bearer {{token}}
+
+> {%
+    client.test("不存在的路线返回 400", function () {
+        client.assert(response.status === 400, "HTTP 状态应为 400");
+        client.assert(response.body.msg === "路线不存在或不可操作", "提示应为路线不存在或不可操作");
+    });
+%}

@@ -2,7 +2,7 @@
 
 河北农业大学小组实训项目。用户输入目的地、出行天数和游玩偏好，系统生成旅游路线，并提供保存、查询、收藏等功能。
 
-当前已完成统一返回与异常处理、城市列表、景点分页、注册登录（Spring Security + JWT + BCrypt）、AI 生成路线与出行小贴士（DeepSeek）。路线保存与管理将逐步开发。前端已接入城市列表接口。
+当前已完成统一返回与异常处理、城市列表、景点分页、注册登录（Spring Security + JWT + BCrypt）、AI 生成路线与出行小贴士（DeepSeek）、路线保存与管理。后端接口已全部完成。前端已接入城市列表接口。
 
 ## 开发环境
 
@@ -21,7 +21,7 @@ ai-travel/
 ├── src/main/resources/                  应用配置
 ├── src/test/                            后端测试
 ├── sql/init.sql                         四张表与城市、景点数据初始化
-├── http/                                IDEA HTTP 请求示例（city、scenic、user、ai）
+├── http/                                IDEA HTTP 请求示例（city、scenic、user、ai、route）
 ├── .mvn/、mvnw、mvnw.cmd                Maven Wrapper
 ├── pom.xml                              后端依赖和构建配置
 └── README.md                            项目说明
@@ -193,6 +193,25 @@ GET http://localhost:8080/scenic/list?cityId=1&pageNum=1&pageSize=5
 3. 从返回 JSON 的 `choices[0].message.content` 取出文本，原样返回前端。
 
 接口地址、模型名和超时在 `application.properties` 中（`ai.base-url`、`ai.model`、`ai.timeout-seconds`，默认 60 秒），API Key 在本地配置中。换用其他兼容 OpenAI 格式的大模型时，只需修改这几项配置。
+
+## 个人路线接口
+
+| 接口 | 说明 | 成功响应 |
+|---|---|---|
+| `POST /route/save` | 请求体 `destination`、`days`、`preference`、`routeContent` 必填，`tipsContent` 可选 | `msg` “保存成功”，`data` 为路线编号 |
+| `GET /route/myList` | 无参数，按保存时间倒序，不分页 | `data` 为路线数组 |
+| `DELETE /route/delete/{id}` | 无请求体 | `msg` “删除成功” |
+| `PUT /route/collect/{id}` | 请求体 `{"isCollect":1}` 收藏，`0` 取消 | `msg` “设置成功” |
+
+全部需要登录。每条路线包含 `id`、`destination`、`days`、`preference`、`routeContent`、`tipsContent`、`isCollect`、`createTime`，不返回 `userId`。请求示例见 `http/route.http`。
+
+**如何保证只能操作自己的路线：**
+
+1. 用户编号只从令牌取得：Controller 参数 `@AuthenticationPrincipal Long userId` 由 `JwtAuthFilter` 解析得到，请求体里即使带了 `userId` 也会被忽略（`TravelRoute.userId` 标注了 `@JsonIgnore`）。
+2. 查询带 `WHERE user_id = ?`，只返回本人记录。
+3. 删除和收藏的 SQL 同时限定 `WHERE id = ? AND user_id = ?`。路线不存在或属于别人时匹配不到记录，影响行数为 0，Service 据此返回 HTTP 400 和“路线不存在或不可操作”，数据不会被修改。
+
+收藏按传入的值设置而不是取反，重复传 1 仍为收藏。
 
 ## 验证与常见问题
 

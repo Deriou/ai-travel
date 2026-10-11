@@ -127,9 +127,5 @@ class UserControllerTests {
                 .compact();
         mockMvc.perform(get("/route/myList").header("Authorization", "Bearer " + expired))
                 .andExpect(status().isUnauthorized());
-
-        // 有效令牌能通过登录校验（路线接口在后续阶段实现，此时为 404 而不是 401）
-        mockMvc.perform(get("/route/myList").header("Authorization", "Bearer " + token))
-                .andExpect(status().isNotFound());
     }
 }
