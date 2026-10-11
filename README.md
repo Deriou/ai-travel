@@ -20,7 +20,7 @@ ai-travel/
 ├── src/main/java/cn/edu/hebau/aitravel/   后端代码
 ├── src/main/resources/                  应用配置
 ├── src/test/                            后端测试
-├── sql/city.sql                         城市表与测试数据初始化
+├── sql/init.sql                         四张表与城市、景点数据初始化
 ├── http/city.http                       IDEA HTTP 请求示例
 ├── .mvn/、mvnw、mvnw.cmd                Maven Wrapper
 ├── pom.xml                              后端依赖和构建配置
@@ -33,7 +33,7 @@ ai-travel/
 
 每位组员使用自己电脑上的 MySQL，数据库名称统一为 `ai_travel`，账号和密码按个人环境填写。
 
-1. 确认本地 MySQL 已启动。在数据库工具（IDEA、Navicat 或 MySQL 客户端）中执行 `sql/city.sql`，准备城市表和测试数据。已有 `ai_travel` 和城市数据可以跳过；脚本不会删除数据库或表，重复执行不会再插入同名城市。
+1. 确认本地 MySQL 已启动。在数据库工具（IDEA、Navicat 或 MySQL 客户端）中执行 `sql/init.sql`，创建 `user`、`city`、`scenic`、`travel_route` 四张表并准备城市和景点数据。脚本不会删除数据库、表或已有路线，重复执行不会再插入同名城市或景点。
 2. 复制 `src/main/resources/application-local.properties.example`，将副本命名为同目录下的 `application-local.properties`。
 3. 编辑副本，填写自己的连接地址、账号和密码：
 
@@ -122,6 +122,8 @@ CityController → CityService → CityMapper → MySQL city 表
 - `service/CityService`：城市业务类，直接调用 Mapper。
 - `controller/CityController`：接收 `/city/list` 请求。
 - `util/Result<T>`：统一包装 `code`、`msg`、`data`。
+- `util/BusinessException`：业务校验失败时抛出，例如参数非法、用户名重复。
+- `util/GlobalExceptionHandler`：把异常统一转成 `Result`，HTTP 状态与 `code` 一致（400 参数或业务错误、404 路径不存在、500 服务异常），页面不显示异常堆栈。
 
 公共配置已开启下划线到驼峰映射，数据库的 `city_name` 自动对应 Java 的 `cityName`。Service 目前使用一个具体类，查询 SQL 写在注解中。
 
@@ -143,11 +145,8 @@ CityController → CityService → CityMapper → MySQL city 表
 
 - `Access denied`：检查本地配置中的数据库账号和密码。
 - `Communications link failure`：检查 MySQL 是否启动，以及连接地址和端口。
-- `Unknown database` 或提示 `city` 表不存在：执行 `sql/city.sql`，并确认连接的是 `ai_travel`。
+- `Unknown database` 或提示 `city` 表不存在：执行 `sql/init.sql`，并确认连接的是 `ai_travel`。
 - 8080 端口占用：停止之前运行的应用，再启动本项目。
-
-统一返回类当前只提供成功响应；全局异常处理会在后续步骤加入。
-
 ## 前端启动与联调
 
 1. 先启动后端 `AiTravelApplication`，默认端口为 8080。
